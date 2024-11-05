@@ -1,0 +1,417 @@
+---
+title: "Caso Pŕactico Final Evaluable"
+output:
+  pdf_document: default
+  html_notebook: default
+  html_document: default
+---
+
+Tomaremos el dataset Salaries.csv
+
+El conjunto de datos consiste en los salarios de nueve meses recogidos de 397 profesores universitarios en los EE.UU. durante 2008 y 2009. Además de los salarios, también se recogió el rango del profesor, el sexo, la disciplina, los años desde el doctorado y los años de servicio. Así, hay un total de 6 variables, que se describen a continuación.
+
+      1. rank: Categórica - de profesor asistente, profesor asociado o catedrático
+      2. discipline: Categórica - Tipo de departamento en el que trabaja el profesor, ya sea aplicado (B) o teórico (A)
+      3. yrs.since.phd: Continuo - Número de años desde que el profesor obtuvo su doctorado
+      4. yrs.service: Continuo - Número de años que el profesor ha prestado servicio al departamento y/o a la universidad
+      5. sex: Categórico - Sexo del profesor, hombre o mujer
+      6. salary: Continuo - Sueldo de nueve meses del profesor (USD)
+
+El objetivo de esta práctica consiste en realizar un estudio íntegro del dataset para terminar implementando un modelo lineal regularizado que realice predicciones sobre el salario a percibir de un profesor. Asimismo, se pedirá aprovechar la explicabilidad de estos modelos y los estudios estadísticos realizados para arrojar intuiciones y dependencias en los datos.
+
+Para ello, se pide al estudiante que realice los siguientes pasos:
+
+1. Carga los datos. Realiza una inspección por variables de la distribución de salarios en función de cada atributo visualmente. Realiza las observaciones pertinentes. ¿Qué variables son mejores para separar los datos? 
+2. ¿Podemos emplear un test paramétrico para determinar si las medias de salarios entre hombres y mujeres son las mismas o difieren? Ten en cuenta que, en tanto que se pide usar un test paramétrico, se deberá determinar si las muestras cumplen con las hipótesis necesarias.
+3. Divide el dataset tomando las primeras 317 instancias como train y las últimas 80 como test. Entrena un modelo de regresión lineal con regularización Ridge y Lasso en train seleccionando el que mejor **MSE** tenga. Da las métricas en test. Valora el uso del One Hot Encoder, en caso de emplearlo arguméntalo.
+4. Estudia la normalidad de los residuos del modelo resultante, ¿detectas algún sesgo?
+5. ¿Qué conclusiones extraes de este estudio y del modelo implementado? ¿Consideras correcto el rendimiento del mismo?
+
+¡Mucho ánimo y espero que disfrutéis de esta última práctica!
+
+1. Carga los datos. Realiza una inspección por variables de la distribución de salarios en función de cada atributo visualmente. Realiza las observaciones pertinentes. ¿Qué variables son mejores para separar los datos?
+
+```{r}
+dataset <- read.csv("C:/Users/Acer/Downloads/Caso final evaluable/salaries.csv")
+```
+```{r}
+# Cargar las librerías necesarias
+library(ggplot2)
+library(dplyr)
+```
+```{r}
+# Crear boxplot de salarios por puesto (rank)
+ggplot(dataset, aes(x = rank, y = salary)) +
+  geom_boxplot(fill = "lightblue") +
+  ggtitle("Salary by Rank") +
+  xlab("Rank") + ylab("Salary") +
+  theme_minimal()
+```
+```{r}
+# Crear boxplot de salarios por disciplina
+ggplot(dataset, aes(x = discipline, y = salary)) +
+  geom_boxplot(fill = "lightgreen") +
+  ggtitle("Salary by Discipline") +
+  xlab("Discipline") + ylab("Salary") +
+  theme_minimal()
+```
+
+```{r}
+# Crear histograma de años desde el PhD
+ggplot(dataset, aes(x = yrs.since.phd)) +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
+  ggtitle("Years Since PhD Distribution") +
+  xlab("Years Since PhD") + ylab("Count") +
+  theme_minimal()
+```
+
+```{r}
+# Crear boxplot de salarios por sexo
+ggplot(dataset, aes(x = sex, y = salary)) +
+  geom_boxplot(fill = "lightpink") +
+  ggtitle("Salary by Sex") +
+  xlab("Sex") + ylab("Salary") +
+  theme_minimal()
+```
+
+```{r}
+# Crear histograma de la distribución de salarios
+ggplot(dataset, aes(x = salary)) +
+  geom_histogram(binwidth = 10000, fill = "lightcoral", color = "black") +
+  ggtitle("Salary Distribution") +
+  xlab("Salary") + ylab("Count") +
+  theme_minimal()
+```
+
+```{r}
+# Crear histograma de años de servicio
+ggplot(dataset, aes(x = yrs.service)) +
+  geom_histogram(binwidth = 5, fill = "lightgreen", color = "black") +
+  ggtitle("Years of Service Distribution") +
+  xlab("Years of Service") + ylab("Count") +
+  theme_minimal()
+```
+Respuesta 1: Podemos observar que las variables que influyen significativamente en el salario son: SEX, Diciplina y  Rango.
+
+
+2. ¿Podemos emplear un test paramétrico para determinar si las medias de salarios entre hombres y mujeres son las mismas o difieren? Ten en cuenta que, en tanto que se pide usar un test paramétrico, se deberá determinar si las muestras cumplen con las hipótesis necesarias.
+
+```{r}
+summary_stats <- dataset %>%
+  group_by(sex) %>%
+  summarise(
+    Median = median(salary, na.rm = TRUE),
+    Mean = mean(salary, na.rm = TRUE),
+    SD = sd(salary, na.rm = TRUE),
+    Min = min(salary, na.rm = TRUE),
+    Max = max(salary, na.rm = TRUE),
+    Count = n()
+  )
+```
+```{r}
+print(summary_stats)
+
+```
+```{r}
+# Filtraré los datos por sexo
+male_salaries <- subset(dataset, sex == "Male")$salary
+female_salaries <- subset(dataset, sex == "Female")$salary
+
+```
+```{r}
+#  Verificaremos la normalidad de las distribuciones con el test de Shapiro-Wilk
+shapiro.test(male_salaries)   # Test para los salarios de hombres
+shapiro.test(female_salaries) # Test para los salarios de mujeres
+```
+El p-valor en el test de normalidad de los hombres es muy bajo (1.735e-08), lo que indica que rechazamos la hipótesis nula de que los salarios de los hombres siguen una distribución normal. Esto sugiere que los salarios de los hombres no son normales.
+
+El p-valor en el test de normalidad de las mujeres es 0.06339, que es mayor que 0.05, lo que sugiere que no hay evidencia suficiente para rechazar la hipótesis nula de normalidad. 
+Esto implica que los salarios de las mujeres podrían ser considerados como normalmente distribuidos, aunque está cerca del límite.
+Respuesta
+Dado que uno de los grupos no cumple con la normalidad, no podemos usar un test parametrico, optaré por un test no paramétrico, como el test de Mann-Whitney U, que no asume normalidad y es adecuado para comparar dos grupos independientes.
+
+```{r}
+# Test de Mann-Whitney U
+test_result <- wilcox.test(male_salaries, female_salaries)
+```
+```{r}
+print(test_result)
+```
+Hipótesis alternativa: El desplazamiento verdadero de la ubicación no es igual a 0 (es decir, las medianas de los dos grupos son diferentes).
+
+El p-valor obtenido es 0.008237, que es significativamente menor que el nivel de significancia comúnmente utilizado de 0.05.
+Esto indica que hay evidencia estadística suficiente para rechazar la hipótesis nula. La hipótesis nula en este contexto es que no hay diferencia en las medianas de los salarios entre hombres y mujeres.
+
+```{r}
+boxplot(salary ~ sex, data = dataset,
+        main = "Distribución de Salarios por Sexo",
+        xlab = "Sexo",
+        ylab = "Salario",
+        col = c("lightpink", "lightblue"))
+```
+Respuesta 2:
+
+Dado que el p-valor es menor que 0.05, podemos concluir que hay una diferencia significativa en las medianas de los salarios. Esto sugiere que en este dataset, los salarios de los hombres son sistemáticamente más altos que los de las mujeres del grupo.
+
+Al realizar un test no paramétrico como el test de Wilcoxon, no necesitamos comparar las varianzas de los grupos. Esto es una de las ventajas de utilizar métodos no paramétricos, ya que simplifican el análisis y son más flexibles en términos de las suposiciones que hacen sobre los datos.
+
+
+3. Divide el dataset tomando las primeras 317 instancias como train y las últimas 80 como test. Entrena un modelo de regresión lineal con regularización Ridge y Lasso en train seleccionando el que mejor **MSE** tenga. Da las métricas en test. Valora el uso del One Hot Encoder, en caso de emplearlo arguméntalo.
+
+
+```{r}
+# Instalar las librerías necesarias
+install.packages("glmnet")
+install.packages("caret")
+
+# Cargar las librerías
+library(glmnet)
+library(caret)
+
+```
+```{r}
+# Dividir el dataset en train y test
+train_data <- dataset[1:317, ]
+test_data <- dataset[318:397, ]
+
+```
+```{r}
+# Renombrar columnas de forma consistente en ambos datasets
+colnames(train_data)[1] <- "id"
+colnames(test_data)[1] <- "id"
+
+colnames(train_data)[which(colnames(train_data) == "rank")] <- "rank_title"
+colnames(test_data)[which(colnames(test_data) == "rank")] <- "rank_title"
+```
+```{r}
+#  Convertir variables categóricas en factores en ambos datasets
+train_data$rank_title <- as.factor(train_data$rank_title)
+train_data$discipline <- as.factor(train_data$discipline)
+train_data$sex <- as.factor(train_data$sex)
+
+test_data$rank_title <- as.factor(test_data$rank_title)
+test_data$discipline <- as.factor(test_data$discipline)
+test_data$sex <- as.factor(test_data$sex)
+```
+```{r}
+# 4. Crear el objeto dummyVars utilizando el conjunto de entrenamiento
+train_encoded <- dummyVars(salary ~ ., data = train_data)
+```
+```{r}
+# 5. Transformar los conjuntos de datos usando predict
+train_transformed <- predict(train_encoded, newdata = train_data)
+test_transformed <- predict(train_encoded, newdata = test_data)
+```
+```{r}
+# Verificar las primeras filas de los datos transformados
+head(train_transformed)
+head(test_transformed)
+```
+
+
+
+Antes de entrenar los modelos, es posible que necesitemos realizar una codificación de variables categóricas si las tenemos en el dataset.
+
+# Aplicar One Hot Encoding a las variables categóricas en el conjunto de entrenamiento
+
+
+```{r}
+# Convertir los datos a matrices
+x_train <- as.matrix(train_transformed)
+y_train <- train_data$salary  # Variable dependiente
+
+x_test <- as.matrix(test_transformed)
+y_test <- test_data$salary
+
+```
+```{r}
+# Entrenar el modelo de regresión Ridge
+ridge_model <- cv.glmnet(x_train, y_train, alpha = 0)  # alpha = 0 para Ridge
+ridge_pred <- predict(ridge_model, s = ridge_model$lambda.min, newx = x_test)
+ridge_mse <- mean((y_test - ridge_pred)^2)
+```
+
+```{r}
+# Entrenar el modelo de regresión Lasso
+lasso_model <- cv.glmnet(x_train, y_train, alpha = 1)  # alpha = 1 para Lasso
+lasso_pred <- predict(lasso_model, s = lasso_model$lambda.min, newx = x_test)
+lasso_mse <- mean((y_test - lasso_pred)^2)
+```
+```{r}
+if (ridge_mse < lasso_mse) {
+    best_model <- "Ridge"
+    best_mse <- ridge_mse
+} else {
+    best_model <- "Lasso"
+    best_mse <- lasso_mse
+}
+
+```
+```{r}
+cat("Mejor modelo:", best_model, "\n")
+cat("MSE del mejor modelo en el conjunto de prueba:", best_mse, "\n")
+
+
+```
+
+# One Hot Encoding se utiliza para convertir datos categóricos (como sexo o disciplina) en números para que las computadoras puedan entenderlos y usarlos en los modelos matemáticos. Los datos categóricos representan cosas en "grupos" o "categorías" (por ejemplo, sexo puede ser masculino o femenino), y no se pueden utilizar directamente en los modelos, porque los modelos solo entienden números.One Hot Encoding toma cada categoría (como masculino y femenino) y crea una columna diferente para cada una, poniendo un 1 si pertenece a esa categoría y un 0 si no. Esto ayuda al modelo a saber a qué grupo pertenece cada observación sin que existan diferencias numéricas que puedan malinterpretarse (como si uno de los géneros fuera “mayor” o “menor” que el otro).
+ Argumentación:
+Usamos One Hot Encoding para que el modelo pueda procesar las columnas categóricas.
+Esto mejora la precisión de nuestros modelos y nos permite obtener predicciones más exactas, que podemos medir usando el MSE.
+```{r}
+mse_data <- data.frame(
+    Model = c("Ridge", "Lasso"),
+    MSE = c(ridge_mse, lasso_mse)
+)
+
+# Graficar los MSE
+ggplot(mse_data, aes(x = Model, y = MSE, fill = Model)) +
+    geom_bar(stat = "identity", width = 0.5) +
+    labs(title = "Comparación de MSE entre Ridge y Lasso",
+         x = "Modelo",
+         y = "MSE en el conjunto de prueba") +
+    theme_minimal()
+
+
+```
+
+```{r}
+head(as.data.frame(train_transformed))
+
+
+```
+ 4. Estudia la normalidad de los residuos del modelo resultante, ¿detectas algún sesgo?
+
+```{r}
+# Obtener los valores predichos en el conjunto de prueba con el mejor modelo (ejemplo con `ridge_model`)
+pred_test <- predict(ridge_model, newx = as.matrix(test_transformed))
+residuals <- test_data$salary - pred_test
+
+```
+```{r}
+# Histograma de los residuos
+hist(residuals, breaks = 20, main = "Histograma de los Residuos", xlab = "Residuos", col = "lightblue")
+
+# Gráfico Q-Q para ver si los residuos siguen una distribución normal
+qqnorm(residuals)
+qqline(residuals, col = "red")
+```
+```{r}
+# Realizar prueba de Shapiro-Wilk
+shapiro_test <- shapiro.test(residuals)
+shapiro_test
+```
+Respuesta:
+El p-value es 0.00978. Como el p-value es menor que 0.05, rechazamos la hipótesis nula de que los residuos siguen una distribución normal. Esto sugiere que los residuos no son completamente normales y puede haber algún sesgo en el modelo.```
+
+Conclusión de la Normalidad de los Residuos:
+Este resultado, junto con la visualización de los gráficos de residuos (histograma y Q-Q plot), sugiere que el modelo tiene cierto sesgo en la predicción. Los residuos que no siguen una distribución normal implican que las predicciones pueden estar sistemáticamente desviadas para ciertos rangos de valores, lo cual afecta la precisión del modelo.
+
+
+Gráfico de Residuos vs Predicciones: Este gráfico puede mostrar si hay patrones en los residuos que indiquen algún tipo de sesgo. En un buen modelo, deberíamos ver los residuos distribuidos aleatoriamente alrededor de cero, sin formar patrones.
+
+
+```{r}
+plot(pred_test, residuals, main = "Residuos vs Predicciones",
+     xlab = "Predicciones", ylab = "Residuos", col = "blue")
+abline(h = 0, col = "red")
+
+
+```
+
+
+5. ¿Qué conclusiones extraes de este estudio y del modelo implementado? ¿Consideras correcto el rendimiento del mismo?
+
+Con el MSE del mejor modelo (Ridge) y el test de normalidad de Shapiro-Wilk ya podemos empezar a formar una conclusión general sobre el rendimiento, aunque algunos análisis adicionales ayudarían a obtener una evaluación más completa.
+
+
+ Mejor modelo: Ridge 
+MSE del mejor modelo en el conjunto de prueba: 609112292                                                                        	Shapiro-Wilk normality test
+
+data:  residuals
+W = 0.95772, p-value = 0.00978   
+
+
+MSE (Error Cuadrático Medio): Con el MSE de aproximadamente 609 millones, podemos evaluar la precisión del modelo en el conjunto de prueba. Este valor te da una idea de qué tan lejos están las predicciones del modelo respecto a los valores reales, aunque en términos absolutos puede ser difícil de interpretar sin un contexto adicional
+
+Test de Normalidad de Shapiro-Wilk: Con un p-valor de 0.00978, la prueba de Shapiro-Wilk indica que los residuos probablemente no siguen una distribución normal (dado que el p-valor es menor a 0.05, rechazamos la hipótesis nula de normalidad). Esto sugiere que puede haber algún grado de sesgo o patrones en los residuos que el modelo no está capturando bien.
+
+Si deseamos un análisis más detallado, podemos:
+
+Graficar los residuos.
+
+Este gráfico ayuda a identificar patrones en los residuos que podrían sugerir problemas de ajuste en el modelo.
+
+
+```{r}
+# Calculamos las predicciones en el conjunto de entrenamiento (o prueba)
+predictions <- predict(ridge_model, newx = as.matrix(test_transformed)) 
+```
+
+```{r}
+# Calculamos los residuos (errores de predicción)
+residuals <- test_data$salary - predictions
+```
+```{r}
+# Gráfico de residuos vs. predicciones
+plot(predictions, residuals, 
+     xlab = "Predicciones", 
+     ylab = "Residuos", 
+     main = "Gráfico de Residuos vs. Predicciones")
+abline(h = 0, col = "red")
+```
+Este gráfico muestra la relación entre las predicciones del modelo y los residuos (diferencias entre las predicciones y los valores reales). Lo ideal es que los residuos se dispersen de forma aleatoria alrededor de la línea horizontal en cero, lo que indica que el modelo no tiene patrones sistemáticos de error.
+
+Interpretación: Aquí se observa una cierta dispersión, pero también hay una tendencia en los extremos, especialmente en valores altos de predicciones, lo que podría indicar algún sesgo en el modelo. Esto sugiere que el modelo no está capturando perfectamente la relación entre las variables y podría estar subestimando o sobreestimando en ciertas áreas.
+
+
+ Gráfico Q-Q de Residuos
+Este gráfico visualiza si los residuos siguen una distribución normal. Si los puntos se desvían de la línea diagonal, eso indica falta de normalidad.
+
+```{r}
+# Q-Q plot de los residuos
+qqnorm(residuals, main = "Q-Q Plot de los Residuos")
+qqline(residuals, col = "red")
+
+```
+
+Interpretación: En este caso, se observa una desviación en los extremos (tanto en los valores más bajos como en los más altos), lo que indica que los residuos no siguen una distribución normal, especialmente en las colas. Esto coincide con el resultado del Shapiro-Wilk test (p-valor = 0.00978), que sugiere que los residuos no son normales.
+
+ Calcular MAE y RMSE
+Estas métricas permiten una interpretación adicional de los errores del modelo
+
+```{r}
+# Calcular MAE (Error Absoluto Medio)
+mae <- mean(abs(residuals))
+
+# Calcular RMSE (Raíz del Error Cuadrático Medio)
+rmse <- sqrt(mean(residuals^2))
+
+# Mostrar resultados
+cat("MAE:", mae, "\n")
+cat("RMSE:", rmse, "\n")
+
+
+```
+ En general, un RMSE mayor que el MAE sugiere que hay algunos errores grandes en las predicciones, lo cual puede estar relacionado con los residuos no normales que vimos antes.
+
+
+Examinar los Coeficientes del Modelo Ridge
+Para ver cuáles variables tienen mayor peso, examinremos los coeficientes del modelo Ridge. Usaremos el coef() para extraer los coeficientes:
+```{r}
+# Extraer coeficientes del modelo Ridge
+coeficientes_ridge <- coef(ridge_model)
+
+# Mostrar coeficientes
+print(coeficientes_ridge)
+
+```
+Los coeficientes indican la importancia de cada variable en el modelo:
+
+Variables como rank_title (título profesional) y sex (género) tienen valores de coeficiente negativos y positivos, lo que indica su influencia en el salario.
+yrs.since.phd (años desde el doctorado) y yrs.service (años de servicio) tienen coeficientes positivos, lo cual es esperado, ya que la experiencia suele correlacionarse con un mayor salario.
+
+
+Conclusión General
+Sesgo Detectado: Sí, parece haber algún sesgo en el modelo, especialmente en los residuos que no son completamente normales y en la tendencia observada en el gráfico de residuos vs. predicciones.
+Rendimiento: Aunque el modelo captura cierta información relevante, las métricas de error y la falta de normalidad en los residuos sugieren que podría no estar representando completamente la variabilidad de los datos.
