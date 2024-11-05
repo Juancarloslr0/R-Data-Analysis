@@ -1,0 +1,234 @@
+---
+title: "Práctica Final   R"
+author: "Juan Carlos Lizarraga"
+date: "2024-05-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+#PRÁCTICA R
+# Objetivo 1.Carga el dataset como dataframe (el valor 999 es nulo) y muestra sus primeras filas, su resúmen estadístico y la estructura de sus columnas.
+```{r}
+ibm_Data <- read.csv("C:/Users/Acer/Downloads/ibm.csv")
+head(ibm_Data)
+```
+```{r}
+summary(ibm_Data)
+```
+#Función summary( )sirve para obtener el análisis estadístico del dataframe.
+```{r}
+str(ibm_Data)
+```
+# Funcion str() es para mostrar la estructura de las columnas.
+
+# Ejercicio 2.Reemplaza todos los valores nulos de la columna "Open", por su mediana
+
+#Necesito funciones de la librería Dplyr para este punto.
+```{r}
+library(dplyr)
+```
+
+```{r}
+# Ahora buscaré la mediana de toda la columna.
+mediana_open <- median(ibm_Data$Open, na.rm = TRUE)
+mediana_open
+```
+#En la linea anterior asigno una variable para la mediana de toda la columna
+#("Mediana_open"), con la funcion median busco la mediana, poniendo el signo "$" y Open después de ibm_data para indicar la ubicacion de la columna en la que hay que trabajar. Con na.rm= TRUE, indico que evite usar los valores nulos para calcular la mediana.
+```{r}
+ibm_Data$Open[is.na(ibm_Data$Open)] <- mediana_open
+```
+```{r}
+any(is.na(ibm_Data$Open))
+```
+# En la linea anterior usé la función "any" para indicar que si sigue habiendo un valor nulo dentro de la columna Open, me regrese un "TRUE", si no hay nulos, entonces me regresará un False.
+
+# Ejercicio 3.	Divide la columna "Date" en "Dia", "Mes" y "Año".
+#Primero importo la librería Tidyr.
+```{r}
+library(tidyr)
+```
+#Usaré la función separate, luego indico que dentro del DF, me separaremos la columna "Date", luego con into, indicamos como necesitamos las nuevas columnas, hay que indicarlas en forma de vector.
+```{r}
+ibm_Data <- separate(ibm_Data, col = Date, into = c("Day", "Month", "Year"), sep = "/")
+```
+```{r}
+head(ibm_Data)
+```
+#Ejercicio 4.	Cambia la columna Año a factor.
+# Usaré la funcion "as." para realizar el cambio.
+```{r}
+ibm_Data$Year <- as.factor(ibm_Data$Year)
+```
+```{r}
+str(ibm_Data)
+```
+#Ejercicio 5.	Devuelve el precio más alto de cada año.
+#Creare un nuevo data frame llamado Max_high, que contendra las columnas "Year" y "Max High.La columna Max High contendra los valores mas altos de la columna "High" correspondientes a cada año. Con la función group by, agrupamos todos los valores de la columna por año, con summarize le indicamos al data frame como agrupar los valores, y con max() obtenemos el valor maximo en cada grupo de datos.
+
+
+```{r}
+Max_high <- ibm_Data %>%
+  group_by(Year) %>%
+  summarize(Max_High = max(High))
+```
+
+```{r}
+View(Max_high)
+```
+#Ejercicio 6.	Muestra una tabla de frecuencias para cada año.
+# Lo que entiendo por esta instruccion, es que debo de trabajar con las columnas "year"(ovbiamente), y volume, ya que registra el volumen de acciones negociadas cada día, y sería lo mas relevante para análisis basados en frecuencias. Como previamente ya convertimos los valores de la columna "Year" a factor, esto será mas directo.
+
+```{r}
+tabla_frecuencias <- ibm_Data %>%
+  group_by(ibm_Data$Year) %>%
+  summarize(Frequency = n())
+  
+```
+
+```{r}
+print(tabla_frecuencias)
+```
+
+#Ejercicio 7.	Obtén una nueva columna que se llame "Diferencias" y que sea el resultado de restar al precio más alto el precio más bajo.
+# Usaré la función mutate() para obtener la nueva columna dentro del paréntesis indico la operacion que necito realizar.
+```{r}
+ibm_Data <- ibm_Data %>%
+  mutate(ibm_Data, Diferencias = round((High - Low),2))
+```
+```{r}
+head(ibm_Data)
+```
+
+
+#Para un mejor entendimiento del data frame, quiero acomodar la nueva columna "diferencias" al lado de la columna Low.
+```{r}
+ibm_Data <- ibm_Data %>% 
+  select(1:6, Diferencias, everything())
+```
+```{r}
+head(ibm_Data)
+```
+# Ejercicio8.	Ordena el dataset de forma ascendente por la columna "Diferencias".
+# Para este paso, usaré la función "arrange", y dentro del parentesis indico la columna en la cual hay que basarse para ordenar el data set.
+```{r}
+df_ascendente <- ibm_Data %>% arrange(Diferencias)
+```
+```{r}
+head(df_ascendente)
+```
+#9.	Muestra un resúmen estadístico del dataset en función de los siguientes valores por cada año:
+#a.	Precio más alto de apertura.
+#b.	Precio más bajo de cierre.
+#c.	Media de la columna "Diferencia".
+#d.	Número de elementos para cada año.
+
+#A.- Precio mas alto de apertura
+```{r}
+max_apertura <- ibm_Data %>%
+  group_by(ibm_Data$Year) %>%
+  summarize(Max_Open = max(Open))
+```
+```{r}
+print(max_apertura)
+```
+#b.	Precio más bajo de cierre.
+```{r}
+min_cierre <- ibm_Data %>%
+  group_by(ibm_Data$Year) %>%
+  summarize(Min_Close = min(Close))
+```
+```{r}
+print(min_cierre)
+```
+#c.	Media de la columna "Diferencia".
+```{r}
+media_diferencia <- mean(ibm_Data$Diferencias)
+```
+```{r}
+media_diferencia
+```
+#d.	Número de elementos para cada año.
+```{r}
+elementos_año <- ibm_Data %>%
+  group_by(ibm_Data$Year) %>%
+  summarize (n())
+print(elementos_año)
+```
+#Previamente, escribí código para cada uno de los puntos a demostrar, ahora intentarè, sacar los 4 en un solo codigo.
+# Para este paso usé la funcion select() para indicar las columnas en las que se va a trabajar, group_by() para agrupar por año, summarise para obtener de cada clumna el resumen estadistico que se esta pidiendo.Dentro de cada linea, asigno nuevas variables a cada pregunta e indico la operacion necesaria para obtener el resultado necesario.
+```{r}
+ibm_Data %>%
+  select(Year,Open,Close,Diferencias) %>%
+  group_by(Year) %>%
+  summarise(max_open_price = max(Open),
+            min_close_price = min(Close),
+            mean_diferencia = mean(Diferencias),
+            total_year_values = n())
+```
+#Ejercicio 10.	Muestra el sumatorio de la variable Volumen para todos los años.
+# Con la funcion select()indico que trabajare con las columnas year y volume, con groupby indico que las agrupare por año, y con summarise indico que dentro de una nueva variable, me sume todos los valores de la columna volume.
+```{r}
+ibm_Data %>% select(Year , Volume) %>%
+  group_by(Year) %>% 
+  summarise(suma_vol_por_año = sum(Volume)  )
+```
+# Ejercicio 11.	Obtén dos histogramas para las variables de precio de apertura y cierre, rellena los histogramas en función del año.
+
+```{r}
+library(ggplot2)
+```
+```{r}
+ggplot(ibm_Data, aes(x = Open)) + #Valores a graficar.
+  geom_histogram(binwidth = 20) + #tipo de grafo
+  ggtitle("Valores de apertura por año y su frecuencia") + # Titulo de grafo
+  facet_wrap(~ Year, scales = "free_x") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 6))
+```
+```{r}
+ggplot(ibm_Data, aes(x = Close)) + # Indico columnas a graficar
+  geom_histogram(binwidth = 20) + # Indico el tipo de grafica
+  ggtitle("Valores de cierre por año y su frecuencia") + # titulo del grafo
+  facet_wrap(~ Year, scales = "free_x") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 6))
+```
+#Ejercicio 12 Muestra un diagrama de dispersión entre los precios más altos y más bajos, además muestra su recta de ajuste.
+```{r}
+ggplot(ibm_Data, aes(x=High, y=Low)) + #En esta linea indico las columnas a visualizar
+    geom_point(shape=1) +
+    geom_smooth(method=lm, se=FALSE) # En esta línea agrego la recta de ajuste.
+```
+#Ejercicio 13	Obtén un diagrama de caja y bigotes de la variable Adj.Close por año.
+```{r}
+ p <- ggplot(ibm_Data, aes(Adj.Close, Year)) #Indico variables a graficar
+ p + geom_boxplot() # Indico el tipo de gráfica.
+```
+14.	Muestra para cada año un diagrama de densidad para la variable "Volume".
+```{r}
+ggplot(ibm_Data, aes(x = Volume, color = factor(Year), fill = factor(Year))) +
+  geom_density(alpha = 0.5) + #tipo grafo
+  labs(title = "Distribución del volumen por año",
+       x = "Volumen",
+       y = "Densidad",
+       color = "Año",
+       fill = "Año") +
+  theme_minimal() 
+```
+
+
+
